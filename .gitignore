@@ -160,3 +160,8 @@ cython_debug/
 #.idea/
 
 data/
+
+# Ignore large data files
+data/submission_sample.csv
+data/test_set_VU_DM.csv
+data/training_set_VU_DM.csv
