@@ -1,5 +1,5 @@
 from sklearn.model_selection import train_test_split
-
+import numpy as np
 
 def feature_engineering(df):
     # add a column that indicates the percental difference in price between that row and the average price of search
@@ -15,7 +15,6 @@ def preprocess(df):
     df.drop(columns="date_time", inplace=True)
     # save
     df.to_csv("data/preprocessed.csv", index=False)
-    
 
 
 def split(df):
@@ -36,3 +35,10 @@ def split(df):
     X_test.drop(columns=to_drop, inplace=True)
 
     return X_train, X_test, y_train, y_test
+
+
+def ndcg_score(y_true, y_pred):
+    # NDCG requires the relevance scores to be in the range [0, 1]
+    y_true = np.clip(y_true, 0, 1)
+    y_pred = np.clip(y_pred, 0, 1)
+    return ndcg_score([y_true], [y_pred])
