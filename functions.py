@@ -6,6 +6,11 @@ def feature_engineering(df):
     mean_search_price = df.groupby("srch_id")["price_usd"].transform("mean")
     df["price_diff"] = (df["price_usd"] - mean_search_price) / mean_search_price
 
+    # # group over srch_id and prop_id and aggregate the comp rates
+    # columns = ['comp1_rate', 'comp2_rate', 'comp3_rate', 'comp4_rate', 'comp5_rate', 'comp6_rate', 'comp7_rate', 'comp8_rate']
+    # df["expedia_lowest"] = df[columns].sum()/8
+    
+
 
 def preprocess(df):
     df["relevance"] = df["booking_bool"].apply(lambda x: 5 if x == 1 else 0) + df[
