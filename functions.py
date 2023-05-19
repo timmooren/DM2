@@ -2,6 +2,13 @@ from sklearn.model_selection import train_test_split
 import numpy as np
 from sklearn.linear_model import LinearRegression
 import pandas as pd
+from sklearn.impute import KNNImputer
+from scipy.stats import boxcox
+from sklearn import preprocessing
+from sklearn.datasets import dump_svmlight_file
+from sklearn.datasets import load_svmlight_file
+import xgboost as xgb
+
 
 
 def feature_engineering(df):
@@ -9,6 +16,13 @@ def feature_engineering(df):
     mean_search_price = df.groupby("srch_id")["price_usd"].transform("mean")
     df["price_diff"] = (df["price_usd"] - mean_search_price) / mean_search_price
 
+def normalize(df):
+    columns_to_normalize = ['prop_starrating', 'prop_review_score', 'prop_location_score1', 'prop_location_score2',
+       'prop_log_historical_price', 'price_usd', 'srch_length_of_stay', 'srch_booking_window', 'srch_adults_count', 
+       'srch_children_count', 'srch_room_count', 'orig_destination_distance',  'comp_rate_ratio', 'comp_inv_ratio']
+    
+    df[columns_to_normalize] = normalize(df[columns_to_normalize])
+    
     
 def remove_variables(df):
     # variables to remove
@@ -18,7 +32,51 @@ def remove_variables(df):
     df = df.drop(to_drop, axis=1)
     return df
 
-def impute_missing_values(df):
+def data_transformation(df, boxcox=True):
+    log_transform = ['prop_location_score1', 'srch_booking_window', 'srch_adults_count', 'srch_room_count', 'orig_destination_distance']
+    power_transform = ['prop_location_score2',  'srch_children_count', 'srch_room_count', 'srch_length_of_stay']
+
+    # boxcox transformation
+    if boxcox:
+        for column in log_transform + power_transform:
+            df[column] = df[column] - df[column].min() + 1
+            df[column] = pd.Series(boxcox(df[column])[0])
+    else:
+        for column in log_transform:
+            df[column] = np.log(df[column] + 1)
+        
+        for column in power_transform:
+            df[column] = np.power(df[column], 0.5)
+
+def outlier_detection(df, transformed=True):
+    # check numerical columns
+    columns_to_check = ['prop_location_score1', 'prop_location_score2','prop_log_historical_price', 'price_usd', 'srch_length_of_stay', 'srch_booking_window','srch_adults_count',
+                    'srch_children_count', 'srch_room_count', 'orig_destination_distance', 'comp_rate_ratio', 'comp_inv_ratio']
+    all_outliers = []
+    # detect outliers for every column
+    for column in columns_to_check:
+        transformed_column = df[column]
+
+        if not transformed:
+        # make negative values positive
+            df[column] = df[column] - df[column].min() + 1
+            transformed_column = pd.Series(boxcox(df[column])[0])
+
+        # use iqr to remove outliers
+        Q1 = transformed_column.quantile(0.25)
+        Q3 = transformed_column.quantile(0.75)
+        IQR = Q3 - Q1
+        # use 3 for extreme outliers
+        lower_bound = Q1 - 3 * IQR
+        upper_bound = Q3 + 3 * IQR
+
+        # get index of outliers in transformed
+        outliers = transformed_column[(transformed_column < lower_bound) | (transformed_column > upper_bound)].index
+        all_outliers = list(set(all_outliers + list(outliers)))
+        # print(f'{column} has {len(outliers)} outliers')
+    return all_outliers
+
+def impute_linear(df):
     # predictor and dependent variables
     dependents = ['orig_destination_distance', 'prop_location_score2', 'prop_review_score']
     predictors = [['prop_country_id', 'visitor_location_country_id', 'srch_destination_id'], ['prop_location_score1', 'prop_id'], ['prop_starrating', 'prop_id', 'prop_location_score1']]
@@ -33,7 +91,7 @@ def impute_missing_values(df):
         # linear regression model
         regression_model = LinearRegression()
         regression_model.fit(training_set[predictors[index]], training_set[dependent])
-
+        # print(regression_model.score(training_set[predictors[index]], training_set[dependent]))
         predicted_values = regression_model.predict(missing_set[predictors[index]])
 
         # replace missing values with predicted values
@@ -43,6 +101,57 @@ def impute_missing_values(df):
 
         # combine dataframes
         df = pd.concat([training_set, missing_set]).sort_index()
+    return df
+
+def impute_knn(df):
+    dependents = ['orig_destination_distance', 'prop_location_score2', 'prop_review_score']
+
+    # linear imputer
+    imputer = KNNImputer(n_neighbors=2)
+    imputer.fit(df[dependents])
+    df[dependents] = imputer.transform(df[dependents])
+
+def predicted_position(df):
+    df = df.drop(columns="date_time")
+    df = df.drop(columns="gross_bookings_usd")
+
+    # predict position
+    X = df.drop('position', axis=1)
+    y = df['position']
+    X_train, X_test, y_train, y_test = train_test_split(X, y, test_size=0.2, random_state=42)
+
+    # Convert SVMLight format
+    dump_svmlight_file(X_train, y_train, 'train.txt')
+    dump_svmlight_file(X_test, y_test, 'test.txt')
+
+    dtrain = xgb.DMatrix('train.txt')
+
+    # Set LambdaMART parameters
+    params = {
+        'objective': 'rank:ndcg',
+        'eval_metric': 'ndcg@1-5',
+        'eta': 0.1,
+        'max_depth': 6,
+        'min_child_weight': 1,
+        'gamma': 0,
+        'subsample': 0.8,
+        'colsample_bytree': 0.8,
+        'lambda': 1,
+        'alpha': 0,
+        'silent': 1,
+        'nthread': 4
+    }
+
+    # train the LambdaMART model using XGBoost
+    model = xgb.train(params, dtrain, num_boost_round=100)
+
+    # make predictions on the test set
+    dtest = xgb.DMatrix('test.txt')
+    y_pred = model.predict(dtest)
+
+    # add predicted values to df
+    df['predicted_position'] = y_pred
+
     return df
 
 def comp_aggregation(df):
