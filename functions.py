@@ -179,6 +179,46 @@ def comp_aggregation(df):
 
     return df_copy
 
+def categorical_encoding(df, alpha=1):
+    '''
+    Replaces category values with a weighted average of target encoding average & overall target average. 
+    Function assumes that 'relevance' exists. 
+    param@alpha: controls the weighted average, (default: alpha=1) meaning that it only uses the target encoding 
+    '''
+        
+    # add prop_id & search_id??
+    categorical_features = ['site_id', 'prop_country_id', 'visitor_location_country_id', 
+                            'promotion_flag', 'srch_destination_id', 'srch_length_of_stay', 
+                            'srch_booking_window', 'srch_adults_count', 'srch_children_count',
+                            'srch_room_count', 'srch_saturday_night_bool', 'relevance'] 
+
+    # get categorical features & make new encoded df
+    df_copy = df.copy()
+    X = df_copy[categorical_features]
+    encoded_features = X.copy()
+
+    # overall target average 
+    overall_avg = X['relevance'].mean()
+
+    for var in X.drop('relevance', axis=1):
+        # get all unique values 
+        unique_values = X[var].unique()
+
+        for value in unique_values:
+            # get avg feature value per categorical value 
+            matching_target_values = X.loc[X[var] == value, 'relevance']
+            target_avg = matching_target_values.mean()
+            # weighted average 
+            weighted_avg = (alpha * target_avg + (1-alpha) * overall_avg) 
+            # update encoded feature 
+            encoded_features[var].replace(value, weighted_avg, inplace=True)
+    
+    # replace df with encoded features 
+    df_copy = df_copy.drop(categorical_features, axis=1)
+    df_copy[categorical_features] = encoded_features
+
+    return df_copy
+
 
 def preprocess(df):
     df["relevance"] = df["booking_bool"].apply(lambda x: 5 if x == 1 else 0) + df[
