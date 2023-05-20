@@ -219,6 +219,38 @@ def categorical_encoding(df, alpha=1):
 
     return df_copy
 
+def down_sampling(df, class_val=0, alpha=0.5, with_replacement=False):
+    '''
+    Down samples the specified class value to specified percentage of instances. 
+    Function assumes that 'relevance' exists. 
+    param@class_val: value of the class to downsample (0,1,6)
+    param@alpha: percentage of selected class instances to downsample (1=all, 0=none). 
+    '''
+    df_copy = df.copy()
+
+    # print percentages of class labels before downsampling
+    temp = ''
+    for val in (0,1,6):
+        val_rate = df_copy['relevance'].value_counts()[val] / len(df_copy)
+        temp += f'{val}: {val_rate}'
+    print(f'before downsampling {temp}')
+
+    # nb of samples to retain 
+    n_samples = round(df_copy['relevance'].value_counts()[class_val] * alpha)
+    # create new downsampled df  
+    downsampled_df = df_copy[df_copy['relevance'] == class_val].sample(n_samples, replace=with_replacement)
+    remaining_df = df_copy[df_copy['relevance'] != class_val]
+    result_df = pd.concat([downsampled_df, remaining_df])
+
+    # print percentage of class labels after downsampling  
+    temp = ''
+    for val in (0,1,6):
+        val_rate = result_df['relevance'].value_counts()[val] / len(result_df)
+        temp += f'{val}:{round(val_rate, 3)} '
+    print(f'after downsampling {temp}')
+
+    return result_df
+
 
 def preprocess(df):
     df["relevance"] = df["booking_bool"].apply(lambda x: 5 if x == 1 else 0) + df[
