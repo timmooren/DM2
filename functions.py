@@ -186,11 +186,13 @@ def categorical_encoding(df, alpha=1):
     param@alpha: controls the weighted average, (default: alpha=1) meaning that it only uses the target encoding 
     '''
         
-    # add prop_id & search_id??
+    # add prop_id & search_id?? 
+    # maybe remove srch_length_of_stay, 'srch_adults_count', 'srch_children_count','srch_room_count'?? (more ordinal)
+    # 
     categorical_features = ['site_id', 'prop_country_id', 'visitor_location_country_id', 
-                            'promotion_flag', 'srch_destination_id', 'srch_length_of_stay', 
-                            'srch_adults_count', 'srch_children_count','srch_room_count', 
-                            'srch_saturday_night_bool', 'relevance'] 
+                            'promotion_flag', 'srch_destination_id', 'srch_adults_count', 
+                            'srch_children_count','srch_room_count', 'srch_saturday_night_bool', 
+                            'random_bool', 'relevance'] 
 
     # get categorical features & make new encoded df
     df_copy = df.copy()
@@ -220,6 +222,7 @@ def categorical_encoding(df, alpha=1):
     return df_copy
 
 def down_sampling(df, class_val=0, alpha=0.5, with_replacement=False):
+    # potential problem: making sure that each srch_id has relatively the same amount of relevance labels 
     '''
     Down samples the specified class value to specified percentage of instances. 
     Function assumes that 'relevance' exists. 
