@@ -189,8 +189,8 @@ def categorical_encoding(df, alpha=1):
     # add prop_id & search_id??
     categorical_features = ['site_id', 'prop_country_id', 'visitor_location_country_id', 
                             'promotion_flag', 'srch_destination_id', 'srch_length_of_stay', 
-                            'srch_booking_window', 'srch_adults_count', 'srch_children_count',
-                            'srch_room_count', 'srch_saturday_night_bool', 'relevance'] 
+                            'srch_adults_count', 'srch_children_count','srch_room_count', 
+                            'srch_saturday_night_bool', 'relevance'] 
 
     # get categorical features & make new encoded df
     df_copy = df.copy()
