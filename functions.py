@@ -129,7 +129,7 @@ def predicted_position(df):
     # Set LambdaMART parameters
     params = {
         'objective': 'rank:ndcg',
-        'eval_metric': 'ndcg@1-5',
+        'eval_metric': 'ndcg@5',
         'eta': 0.1,
         'max_depth': 6,
         'min_child_weight': 1,
